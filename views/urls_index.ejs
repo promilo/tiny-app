@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+
+ <% include ./partials/_headers %>
+
+<body>
+    <!-- Add your EJS code here -->
+    <ul>
+
+      <% for(url in urls) { %>
+      <li> <%= url %> =>  <%= urls[url] %>
+          <a href="/urls/<%= url %>">
+            Edit
+          </a>
+         <form method="POST" action="/urls/<%= url %>/delete">
+           <input type="submit" value="Delete Me"/>
+         </form>
+      </li>
+      <% }%>
+    </ul>
+</body>
+</html>
