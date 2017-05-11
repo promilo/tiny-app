@@ -19,8 +19,8 @@ var urlDatabase = {
 const users = {
   "userRandomID": {
     id: "userRandomID",
-    email: "user@example.com",
-    password: "purple-monkey-dinosaur"
+    email: "a@example.com",
+    password: "ab"
   },
  "user2RandomID": {
     id: "user2RandomID",
@@ -51,7 +51,8 @@ app.get("/hello", (req, res) => {
 
 app.get("/urls", (req, res) => {
   let templateVars = { urls: urlDatabase,
-    username : req.cookies["username"] };
+    user_id : req.cookies["username"],
+    user: users};
   res.render("urls_index", templateVars);
 });
 
@@ -62,7 +63,8 @@ app.get("/urls", (req, res) => {
 
 app.get("/urls/new", (req, res) => {
   let templateVars = { urls: urlDatabase,
-                  username : req.cookies["username"] };
+                  user_id : req.cookies["username"],
+                  user: users};
   res.render("urls_new", templateVars);
 });
 
@@ -95,7 +97,8 @@ app.post('/urls/:shortURL/delete', (req, res) => {
 app.get('/urls/:shortURL', (req, res) => {
   let templateVars = { urls: urlDatabase,
                        shortURL: req.params.shortURL,
-                     username : req.cookies["username"] };
+                     user_id : req.cookies["username"],
+                     user: users};
   urlDatabase[req.params.shortURL] = req.body.updateLongURL;
   res.render("urls_show", templateVars);
 });
@@ -106,9 +109,33 @@ app.post ('/urls/:shortURL/update', (req, res) => {
   res.redirect('/urls');
 });
 
+app.get("/login", (req, res) => {
+  let templateVars = { urls: urlDatabase,
+                       shortURL: req.params.shortURL,
+                     user_id : req.cookies["username"],
+                     user: users};
+  res.render("login", templateVars);
+
+})
+
 app.post('/login', (req, res) => {
-  res.cookie('username', req.body.username);
-  res.redirect('/urls');
+  console.log("app.post /login");
+  console.log(users);
+  for (let ind in users) {
+    console.log("Checking " + users[ind].email);
+    if (users[ind].email === req.body.email){
+      console.log("Checked and its right " + users[ind].email)
+      if (users[ind].password === req.body.password){
+        res.cookie('username', users[ind].id)
+        res.redirect('/urls');
+        return;
+      } else{
+        res.sendStatus("403");
+        return;
+      }
+    }
+  }
+  res.sendStatus("403");
 });
 
 app.post('/logout', (req, res) => {
@@ -118,20 +145,34 @@ app.post('/logout', (req, res) => {
 
 
 app.get('/register', (req, res) => {
-  res.render("urls_register");
+  let templateVars = { urls: urlDatabase,
+                       shortURL: req.params.shortURL,
+                     user_id : req.cookies["username"],
+                     user: users};
+  res.render("urls_register", templateVars);
 });
 
 app.post('/register', (req, res) => {
   user = {};
   let new_id = generateRandomString();
   let new_email = req.body.email;
+  if (new_email === ""){
+    res.sendStatus("400");
+    return;
+  }
   let new_password = req.body.password;
+  if(new_password === "") {
+    res.sendStatus("400");
+    return;
+  }
   user["id"] = new_id;
   user["email"] = new_email;
   user["password"] = new_password;
   users[new_id] = user;
-  console.log(users);
+  console.log("app.post /register ");
+  console.log(users)
   res.cookie('username', new_id)
   res.redirect('/urls');
+  return;
 
 })
