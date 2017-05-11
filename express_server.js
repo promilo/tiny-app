@@ -8,7 +8,7 @@ const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(cookieParser())
 
-
+const bcrypt = require('bcrypt');
 
 var urlDatabase = {
   "b2xVn2": { longURL: "http://www.lighthouselabs.ca",
@@ -153,7 +153,7 @@ app.post('/login', (req, res) => {
     console.log("Checking " + users[ind].email);
     if (users[ind].email === req.body.email){
       console.log("Checked and its right " + users[ind].email)
-      if (users[ind].password === req.body.password){
+      if (bcrypt.compareSync(req.body.password, users[ind].password)){
         res.cookie('username', users[ind].id)
         res.redirect('/urls');
         return;
@@ -189,13 +189,14 @@ app.post('/register', (req, res) => {
     return;
   }
   let new_password = req.body.password;
+  let hashed_password = bcrypt.hashSync(new_password, 10);
   if(new_password === "") {
     res.sendStatus("400");
     return;
   }
   user["id"] = new_id;
   user["email"] = new_email;
-  user["password"] = new_password;
+  user["password"] = hashed_password;
   users[new_id] = user;
   console.log("app.post /register ");
   console.log(users)
@@ -203,5 +204,3 @@ app.post('/register', (req, res) => {
   res.redirect('/urls');
   return;
 })
-
-app
