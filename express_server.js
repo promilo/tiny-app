@@ -2,22 +2,22 @@ var express = require("express");
 var app = express();
 var PORT = process.env.PORT || 8080; // default port 8080
 var cookieParser = require('cookie-parser')
+app.use(cookieParser());
 app.set("view engine", "ejs")
-
 var cookieSession = require('cookie-session')
+var methodOverride = require('method-override')
+
+//override with POST
+app.use(methodOverride('_method'));
+
 
 app.use(cookieSession({
   name: 'session',
   keys: ['2','5','6'],
 
 }))
-
-
-
 const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended: true}));
-app.use(cookieParser())
-
 const bcrypt = require('bcrypt');
 
 var urlDatabase = {
@@ -25,7 +25,6 @@ var urlDatabase = {
               userID: "userRandomID"},
   "9sm5xK": {longURL: "http://www.google.com",
               userID: "user2RandomID"}
-  // "shortURL": "longURL"
 };
 
 const users = {
@@ -41,7 +40,24 @@ const users = {
   }
 }
 
+// this helper function is to help filtering out links and it will output links that has the property of id,
+function urlsForUser(id){
+  let result = {};
+  for( let short in urlDatabase) {
+    if (urlDatabase[short].userID == id){
+      result[short] = urlDatabase[short]
+    }
+  }
+  return result
+}
 
+// To generate a random string for both the user id and the url link.
+function generateRandomString() {
+  return Math.random().toString(36).substr(2, 6)
+}
+
+
+// To force the user to go to /urls
 app.get('/', (req, res) => {
   res.redirect('/urls');
 })
@@ -55,116 +71,81 @@ app.get("/urls.json", (req, res) => {
 });
 
 
-app.get("/hello", (req, res) => {
-  res.end("<html><body>Hello <b>World</b></body></html>\n");
-});
-
-
-
 app.get("/urls", (req, res) => {
-  let userData = urlsForUser(req.session.username);
+  //filter out the links for the specific user.
+  let userData = urlsForUser(req.session.user_id);
   let templateVars = { urls: userData,
-    user_id : req.session.username,
+    user_id : req.session.user_id,
     user: users};
   res.render("urls_index", templateVars);
 });
 
-// app.get("/urls/:id", (req, res) => {
-//   let templateVars = { shortURL: req.params.id };
-//   res.render("urls_show", templateVars);
-// });
-
 app.get("/urls/new", (req, res) => {
   let templateVars = { urls: urlDatabase,
-                  user_id : req.session.username,
+                  user_id : req.session.user_id,
                   user: users};
-  if (req.session.username){
+  if (req.session.user_id){
   res.render("urls_new", templateVars);
 } else {
   res.redirect("login");
 }
 });
-
-
-
+// to collect the data from urls_show and add it to the urlDatabase
 app.post("/urls", (req, res) => {
   let short = generateRandomString();
   let newObject = {};
   newObject["longURL"] = req.body.longURL;
-  newObject["userID"] = req.session.username;
+  newObject["userID"] = req.session.user_id;
   urlDatabase[short]=newObject;
-  console.log(urlDatabase[short]);
   res.redirect("/urls");
 });
 
-
-
-function generateRandomString() {
-  return Math.random().toString(36).substr(2, 6)
-}
-
-function urlsForUser(id){
-  let result = {};
-  for( let short in urlDatabase) {
-    if (urlDatabase[short].userID == id){
-      result[short] = urlDatabase[short]
-    }
-  }
-  return result
-}
-
+// to check the database for longurl and then redirecting it to the actual website.
 app.get("/u/:shortURL", (req, res) => {
-  let goTo = urlDatabase[req.params.shortURL]["longURL"];
-  console.log(goTo);
+  let goTo = urlDatabase[req.params.shortURL].longURL;
   res.redirect(goTo);
 });
-
+// to delete the e short url completly.
 app.post('/urls/:shortURL/delete', (req, res) => {
-  if (req.session.username === urlDatabase[req.params.shortURL].userID){
+  if (req.session.user_id === urlDatabase[req.params.shortURL].userID){
     delete urlDatabase[req.params.shortURL];
     res.redirect('/urls');
   } else {
     res.sendStatus("400");
   }
 });
-
+// This is for editing the URL.
 app.get('/urls/:shortURL', (req, res) => {
   let templateVars = { urls: urlDatabase,
                        shortURL: req.params.shortURL,
-                     user_id : req.session.username,
+                     user_id : req.session.user_id,
                      user: users};
-  if (req.session.username === urlDatabase[req.params.shortURL].userID){
+  if (req.session.user_id === urlDatabase[req.params.shortURL].userID){
     urlDatabase[req.params.shortURL]["longURL"] = req.body.updateLongURL;;
     res.render("urls_show", templateVars);
   } else {
     res.sendStatus("400")
   }
 });
-
+//This is for changing the long url database.
 app.post ('/urls/:shortURL/update', (req, res) => {
   urlDatabase[req.params.shortURL]["longURL"] = req.body.updateLongURL;
-
   res.redirect('/urls');
 });
-
+// For login page.
 app.get("/login", (req, res) => {
   let templateVars = { urls: urlDatabase,
                        shortURL: req.params.shortURL,
-                     user_id : req.session.username,
+                     user_id : req.session.user_id,
                      user: users};
   res.render("login", templateVars);
-
 })
-
+// To check if the login information is in the database.
 app.post('/login', (req, res) => {
-  console.log("app.post /login");
-  console.log(users);
   for (let ind in users) {
-    console.log("Checking " + users[ind].email);
     if (users[ind].email === req.body.email){
-      console.log("Checked and its right " + users[ind].email)
       if (bcrypt.compareSync(req.body.password, users[ind].password)){
-        req.session.username = users[ind].id
+        req.session.user_id = users[ind].id
         res.redirect('/urls');
         return;
       } else{
@@ -175,17 +156,16 @@ app.post('/login', (req, res) => {
   }
   res.sendStatus("403");
 });
-
+// to logout the page and delete the cookie's session.
 app.post('/logout', (req, res) => {
   req.session = null;
   res.redirect('/urls');
 });
-
-
+// render the register page. 
 app.get('/register', (req, res) => {
   let templateVars = { urls: urlDatabase,
                        shortURL: req.params.shortURL,
-                     user_id : req.session.username,
+                     user_id : req.session.user_id,
                      user: users};
   res.render("urls_register", templateVars);
 });
@@ -208,9 +188,7 @@ app.post('/register', (req, res) => {
   user["email"] = new_email;
   user["password"] = hashed_password;
   users[new_id] = user;
-  console.log("app.post /register ");
-  console.log(users)
-  req.session.username = new_id;
+  req.session.user_id = new_id;
   res.redirect('/urls');
   return;
 })
