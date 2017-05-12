@@ -5,7 +5,7 @@ tinay app is a full stack web application built with Node and Express that allow
 
 ## Final Product
 
-!["Screenshots of urls page"] (https://www.github.com/promilo/tiny-app/blob/master/readmePicutres/urls.png)
+!["Screenshots of urls page"] (https://github.com/promilo/tiny-app/blob/master/readmePicutres/urls)
 
 ## Dependencies
 
